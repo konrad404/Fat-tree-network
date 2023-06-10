@@ -9,7 +9,7 @@ The project is to create and analyze the fat tree network topology. It will cons
 ### Fat tree topology
 Fat Tree topology is a popular and scalable network architecture commonly used in data center networks. It consists of multiple layers of switches, arranged in a hierarchical manner, with increasing levels of connectivity as you move up the hierarchy. This architecture provides a high degree of fault tolerance, bandwidth capacity, and scalability, making it an ideal choice for large-scale data centers.
 
-| *Fat tree topology schedule example* |
+| *Fat tree topology scheme example* |
 |:--:| 
 | ![image](https://user-images.githubusercontent.com/72918433/236562694-c67308b1-7d7f-4dfc-b243-9119a1dcc5c5.png) | 
 
