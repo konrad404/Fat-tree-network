@@ -3,7 +3,7 @@
 ### Intro
 The project is to create and analyze the fat tree network topology. It will consist of following steps:
 1. Creation of the large-scale fat tree network topology model using NetBox simulation tool.
-2. Performing cost scalability analysis for fat tree networks including physical placement considerations.
+2. Performing cost and scalability analysis for fat tree networks including physical placement considerations.
 3. Adding automation to the project simulations.
 
 ### Fat tree topology
