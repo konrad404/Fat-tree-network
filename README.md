@@ -16,3 +16,11 @@ Fat Tree topology is a popular and scalable network architecture commonly used i
 
 ### NetBox
 NetBox is a versatile open-source network management and automation tool that allows to efficiently manage network infrastructures. With NetBox, users can easily model network topologies, manage IP addresses, and automate routine network management tasks. It's intuitive web interface and REST API make it easy to integrate with other tools and systems.
+
+### Setup
+**NetBox**<br />
+Take the following steps to run a local NetBox server via Docker:
+* Ensure that your Docker daemon is running.
+* Run the netbox/setup.sh script
+* Once all containers are up and running, execute the following command: <br /> ```docker compose exec netbox /opt/netbox/netbox/manage.py createsuperuser```
+* Open http://localhost:8000/ to verify if everything was set up correctly.
