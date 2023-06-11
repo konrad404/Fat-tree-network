@@ -21,6 +21,9 @@ NetBox is a versatile open-source network management and automation tool that al
 **NetBox**<br />
 Take the following steps to run a local NetBox server via Docker:
 * Ensure that your Docker daemon is running.
-* Run the netbox/setup.sh script
-* Once all containers are up and running, execute the following command: <br /> ```docker compose exec netbox /opt/netbox/netbox/manage.py createsuperuser```
+* Run the ```netbox/setup.sh``` script
+* Once all containers are up and running, execute the following commands:
+  * ```cd netbox-docker```
+  * ```docker compose exec netbox /opt/netbox/netbox/manage.py createsuperuser```
+  * Remember credentials you provide, paste them into the ```netbox_client.py```
 * Open http://localhost:8000/ to verify if everything was set up correctly.

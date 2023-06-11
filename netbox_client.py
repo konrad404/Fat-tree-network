@@ -1,8 +1,8 @@
 import requests
 
 NETBOX_HOST = "http://localhost:8000"
-USERNAME = "a"
-PASSWORD = "123"
+USERNAME = "user"
+PASSWORD = "1234"
 
 
 class NetboxClient:

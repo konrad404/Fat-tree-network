@@ -14,9 +14,3 @@ EOF
 
 docker compose pull
 docker compose up -d
-
-until docker-compose exec netbox /opt/netbox/netbox/manage.py migrate &>/dev/null; do
-  sleep 1
-done
-
-docker compose exec netbox /opt/netbox/netbox/manage.py createsuperuser
