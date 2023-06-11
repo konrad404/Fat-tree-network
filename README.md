@@ -25,5 +25,5 @@ Take the following steps to run a local NetBox server via Docker:
 * Once all containers are up and running, execute the following commands:
   * ```cd netbox-docker```
   * ```docker compose exec netbox /opt/netbox/netbox/manage.py createsuperuser```
-  * Remember credentials you provide, paste them into the ```netbox_client.py```
+  * Remember credentials you provide, paste them into the ```credentials.json```
 * Open http://localhost:8000/ to verify if everything was set up correctly.

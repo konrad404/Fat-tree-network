@@ -1,8 +1,7 @@
 import requests
+import json
 
 NETBOX_HOST = "http://localhost:8000"
-USERNAME = "user"
-PASSWORD = "1234"
 
 
 class NetboxClient:
@@ -13,9 +12,12 @@ class NetboxClient:
         }
 
     def auth(self):
+        with open('credentials.json') as file:
+            credentials = json.load(file)
+
         body = {
-            "username": USERNAME,
-            "password": PASSWORD
+            "username": credentials["username"],
+            "password": credentials["password"]
         }
 
         response = self.send_request("POST", f"{NETBOX_HOST}/api/users/tokens/provision/", body)
