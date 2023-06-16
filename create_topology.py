@@ -60,15 +60,28 @@ def join_core_with_aggregation(core_routers, aggregation_routers):
             for core_router in core_routers_to_join:
                 join_devices(agg_r, core_router)
 
-def join_aggregation_with_edge(aggregation_routers, edge_routers):
-    for agg_r in aggregation_routers:
-        for edge_r in edge_routers:
-            join_devices(agg_r, edge_r)
+def join_aggregation_with_edge(aggregation_routers, edge_routers, pod_number):
+    aggregation_per_pod = len(aggregation_routers) // pod_number
+    edge_per_pod = len(edge_routers) // pod_number
+
+    for pod_id in range(pod_number):
+        aggregation_start = pod_id * aggregation_per_pod
+        aggregation_end = (pod_id + 1) * aggregation_per_pod
+
+        edge_start = pod_id * edge_per_pod
+        edge_end = (pod_id + 1) * edge_per_pod
+
+        aggregation_pod_routers = aggregation_routers[aggregation_start:aggregation_end]
+        edge_pod_routers = edge_routers[edge_start:edge_end]
+
+        for agg_r in aggregation_pod_routers:
+            for edge_r in edge_pod_routers:
+                join_devices(agg_r, edge_r)
 
 def join_edge_with_hosts(edge_routers, host_list):
     hosts_per_router = len(host_list) // len(edge_routers)
     for id, edge_r in enumerate(edge_routers):
-        for host in host_list[id:id+hosts_per_router]:
+        for host in host_list[id * hosts_per_router: (id*hosts_per_router)+hosts_per_router]:
             join_devices(edge_r, host)
 
 def create_topology():
@@ -92,11 +105,10 @@ def create_topology():
 
     # HOSTS
     host_list = create_hosts(HOST_NUMBER)
-    print(host_list)
 
     #JOINING PARTY
     join_core_with_aggregation(core_routers, aggregation_routers)
-    join_aggregation_with_edge(aggregation_routers, edge_routers)
+    join_aggregation_with_edge(aggregation_routers, edge_routers, POD_NUMBER)
     join_edge_with_hosts(edge_routers, host_list)
 
 
