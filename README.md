@@ -11,7 +11,7 @@ Fat Tree topology is a popular and scalable network architecture commonly used i
 
 | *Fat tree topology scheme example* |
 |:--:| 
-| ![image](https://user-images.githubusercontent.com/72918433/236562694-c67308b1-7d7f-4dfc-b243-9119a1dcc5c5.png) | 
+| ![image](https://github.com/konrad404/Fat-tree-network/assets/72918433/00103200-cc6d-41c5-8977-9402630389a2) | 
 
 
 ### NetBox
@@ -27,3 +27,6 @@ Take the following steps to run a local NetBox server via Docker:
   * ```docker compose exec netbox /opt/netbox/netbox/manage.py createsuperuser```
   * Remember credentials you provide, paste them into the ```credentials.json```
 * Open http://localhost:8000/ to verify if everything was set up correctly.
+* To create the Fat Tree Topology run create_topology.py
+* Visit http://localhost:8000/dcim/devices/ to find all created devices.
+![image](https://github.com/konrad404/Fat-tree-network/assets/72918433/e1ce4ae1-baba-443a-b636-080ca9f70f86)
