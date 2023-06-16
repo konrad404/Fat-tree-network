@@ -135,3 +135,4 @@ class NetboxClient:
             print(f"Error {response.status_code} while sending {method} request to {url}: {response.text}")
             return
         return response
+
