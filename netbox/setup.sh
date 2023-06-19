@@ -10,6 +10,8 @@ services:
   netbox:
     ports:
       - 8000:8080
+    healthcheck:
+      start_period: 180s
 EOF
 
 docker compose pull
