@@ -1,3 +1,5 @@
+import math
+
 from netbox_client import NetboxClient
 
 class Interface:
@@ -86,13 +88,23 @@ def join_edge_with_hosts(edge_routers, host_list):
 
 def create_topology():
     CORE_NUMBER = 4
-    AGGREGATION_NUMBER = 8
-    EDGE_NUMBER = 8
-    POD_NUMBER = 4
-    HOST_NUMBER = 16
+
+    PORTS_PER_ROUTER = 36
+
+    HOST_NUMBER = 80
+
+
+    POD_NUMBER = int(math.ceil(HOST_NUMBER / (2 * PORTS_PER_ROUTER)))
+
+    AGGREGATION_NUMBER = 2 * POD_NUMBER
+    EDGE_NUMBER = 2 * POD_NUMBER
+
+
+
 
     # CORE ROUTERS
     CORE_PORTS = AGGREGATION_NUMBER//2
+    # TODO: check if generated number of porst is acceptable (depends on router machine)
     core_routers = create_routers_with_ports(CORE_NUMBER, CORE_PORTS, "core")
 
     # AGGREGATION ROUTERS
