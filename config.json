@@ -1,0 +1,6 @@
+{
+  "core_router_number": 4,
+  "ports_per_router": 36,
+  "host_number" : 16,
+  "rack_height": 42
+}
