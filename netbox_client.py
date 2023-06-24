@@ -36,6 +36,19 @@ class NetboxClient:
         print(f"Site {name} with id {device_id} created")
         return device_id
 
+    def get_sites_ids(self):
+        response = self.send_request("GET", f"{NETBOX_HOST}/api/dcim/sites/", body=None)
+
+        sites = response.json()["results"]
+        return self.get_ids_from_get_response(sites)
+
+    def delete_sites(self):
+        sites = self.get_sites_ids()
+
+        for site_id in sites:
+            self.send_request("DELETE", f"{NETBOX_HOST}/api/dcim/sites/{site_id}", body=None)
+            print(f"Site with id {site_id} deleted")
+
     def create_manufacturer(self, name):
         manufacturer = {
             "name": name,
@@ -47,6 +60,19 @@ class NetboxClient:
         manufacturer_id = response.json()["id"]
         print(f"Manufacturer {name} with id {manufacturer_id} created")
         return manufacturer_id
+
+    def get_manufacturers_ids(self):
+        response = self.send_request("GET", f"{NETBOX_HOST}/api/dcim/manufacturers/", body=None)
+
+        manufacturers = response.json()["results"]
+        return self.get_ids_from_get_response(manufacturers)
+
+    def delete_manufacturers(self):
+        manufacturers = self.get_manufacturers_ids()
+
+        for manufacturer_id in manufacturers:
+            self.send_request("DELETE", f"{NETBOX_HOST}/api/dcim/manufacturers/{manufacturer_id}", body=None)
+            print(f"Manufacturer with id {manufacturer_id} deleted")
 
     def create_device_type(self, name, manufacturer_id, model_name):
         device_type = {
@@ -62,6 +88,19 @@ class NetboxClient:
         print(f"Device type {name} with id {device_type_id} created")
         return device_type_id
 
+    def get_device_types_ids(self):
+        response = self.send_request("GET", f"{NETBOX_HOST}/api/dcim/device-types/", body=None)
+
+        device_types = response.json()["results"]
+        return self.get_ids_from_get_response(device_types)
+
+    def delete_device_types(self):
+        device_types = self.get_device_types_ids()
+
+        for device_type_id in device_types:
+            self.send_request("DELETE", f"{NETBOX_HOST}/api/dcim/device-types/{device_type_id}", body=None)
+            print(f"Device type with id {device_type_id} deleted")
+
     def create_rack(self, name, device_number, site_id):
         rack = {
             "site": site_id,
@@ -75,6 +114,18 @@ class NetboxClient:
         print(f"Rack {name} with id {rack_id} created")
         return rack
 
+    def get_racks_ids(self):
+        response = self.send_request("GET", f"{NETBOX_HOST}/api/dcim/racks/", body=None)
+
+        racks = response.json()["results"]
+        return self.get_ids_from_get_response(racks)
+
+    def delete_racks(self):
+        racks = self.get_racks_ids()
+
+        for rack_id in racks:
+            self.send_request("DELETE", f"{NETBOX_HOST}/api/dcim/racks/{rack_id}", body=None)
+            print(f"Rack with id {rack_id} deleted")
 
     def create_device_role(self, name):
         device_role = {
@@ -87,6 +138,19 @@ class NetboxClient:
         device_role_id = response.json()["id"]
         print(f"Device role {name} with id {device_role_id} created")
         return device_role_id
+
+    def get_device_roles_ids(self):
+        response = self.send_request("GET", f"{NETBOX_HOST}/api/dcim/device-roles/", body=None)
+
+        device_roles = response.json()["results"]
+        return self.get_ids_from_get_response(device_roles)
+
+    def delete_device_roles(self):
+        device_roles = self.get_device_roles_ids()
+
+        for device_role_id in device_roles:
+            self.send_request("DELETE", f"{NETBOX_HOST}/api/dcim/device-roles/{device_role_id}", body=None)
+            print(f"Device role with id {device_role_id} deleted")
 
     def create_device(self, name, type_id, role_id, site_id, rack_id, rack_position):
         device = {
@@ -105,6 +169,23 @@ class NetboxClient:
         print(f"Device {name} with id {device_id} created")
         return device_id
 
+    def get_devices_ids(self):
+        response = self.send_request("GET", f"{NETBOX_HOST}/api/dcim/devices/", body=None)
+
+        devices = response.json()["results"]
+        return self.get_ids_from_get_response(devices)
+
+    def delete_devices(self):
+        devices_ids = self.get_devices_ids()
+
+        for id in devices_ids:
+            self.delete_device(id)
+
+    def delete_device(self, device_id):
+        self.send_request("DELETE", f"{NETBOX_HOST}/api/dcim/devices/{device_id}", body=None)
+
+        print(f"Device with id {device_id} deleted")
+
     def create_interface(self, name, device_id):
         interface = {
             "name": name,
@@ -117,10 +198,6 @@ class NetboxClient:
         interface_id = response.json()["id"]
         print(f"Interface {name} with id {interface_id} created")
         return interface_id
-
-    # def delete_devices(self):
-    #     response = self.send_request("POST", f"{NETBOX_HOST}/api/dcim/devices/delete/", body = {})
-    #     print(response)
 
     def create_cable(self, int1_id, int2_id):
         cable = {
@@ -147,6 +224,8 @@ class NetboxClient:
     def send_request(self, method, url, body):
         if method == "POST":
             response = requests.post(url, headers=self.headers, json=body)
+        elif method == "GET":
+            response = requests.get(url, headers=self.headers)
         elif method == "DELETE":
             response = requests.delete(url, headers=self.headers)
         else:
@@ -157,3 +236,9 @@ class NetboxClient:
             return
         return response
 
+    @staticmethod
+    def get_ids_from_get_response(items):
+        id_list = []
+        for item in items:
+            id_list.append(item['id'])
+        return id_list
