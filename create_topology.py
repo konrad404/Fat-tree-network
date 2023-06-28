@@ -57,10 +57,10 @@ class Cable(EntryWithPrice):
         super().__init__(price, f"Cable {id}", f"{length} m")
 
 class Rack(EntryWithPrice):
-    def __init__(self, id, height, devices=[], price=None):
+    def __init__(self, id, height, price=None):
         self.id = id
         self.height = height
-        self.devices = devices
+        self.devices = []
 
         if price is None:
             price = Prices.getRackPriceBasedOnHeight(height)
