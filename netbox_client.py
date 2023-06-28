@@ -135,7 +135,7 @@ class NetboxClient:
         }
 
         response = self.send_request("POST", f"{NETBOX_HOST}/api/dcim/racks/", body=rack)
-
+        print(response.json())
         rack_id = response.json()["id"]
         print(f"Rack {name} with id {rack_id} created")
         return rack
