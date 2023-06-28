@@ -24,6 +24,16 @@ class NetboxClient:
         api_token = response.json()['display']
         self.headers["Authorization"] = f"Token {api_token}"
 
+    def create_custom_field(self, name, field_type, content_types):
+        custom_field = {
+            "name": name,
+            "type": field_type,
+            "content_types": content_types
+        }
+
+        self.send_request("POST", f"{NETBOX_HOST}/api/extras/custom-fields/", body=custom_field)
+
+
     def create_site(self, name):
         site = {
             "name": name,
@@ -36,12 +46,25 @@ class NetboxClient:
         print(f"Site {name} with id {device_id} created")
         return device_id
 
+    def get_custom_types_ids(self):
+        response = self.send_request("GET", f"{NETBOX_HOST}/api/extras/custom-fields/", body=None)
+
+        custom_types = response.json()["results"]
+        return self.get_ids_from_get_response(custom_types)
+    
     def get_sites_ids(self):
         response = self.send_request("GET", f"{NETBOX_HOST}/api/dcim/sites/", body=None)
 
         sites = response.json()["results"]
         return self.get_ids_from_get_response(sites)
 
+    def delete_custom_types(self):
+        custom_types = self.get_custom_types_ids()
+
+        for custom_type_id in custom_types:
+            self.send_request("DELETE", f"{NETBOX_HOST}/api/extras/custom-fields/{custom_type_id}", body=None)
+            print(f"Custom type with id {custom_type_id} deleted")
+    
     def delete_sites(self):
         sites = self.get_sites_ids()
 
@@ -74,12 +97,15 @@ class NetboxClient:
             self.send_request("DELETE", f"{NETBOX_HOST}/api/dcim/manufacturers/{manufacturer_id}", body=None)
             print(f"Manufacturer with id {manufacturer_id} deleted")
 
-    def create_device_type(self, name, manufacturer_id, model_name):
+    def create_device_type(self, name, manufacturer_id, model_name, price = 0):
         device_type = {
             "name": name,
             "manufacturer": manufacturer_id,
             "model": model_name,
-            "slug": name
+            "slug": name,
+            "custom_fields": {
+                "price": price,
+            },
         }
 
         response = self.send_request("POST", f"{NETBOX_HOST}/api/dcim/device-types/", body=device_type)
@@ -199,7 +225,7 @@ class NetboxClient:
         print(f"Interface {name} with id {interface_id} created")
         return interface_id
 
-    def create_cable(self, int1_id, int2_id):
+    def create_cable(self, int1_id, int2_id, length = None, price = None):
         cable = {
             "a_terminations": [
                 {
@@ -214,6 +240,11 @@ class NetboxClient:
                 },
             ],
             "status": "connected",
+            "length": length,
+            "length_unit": "m",
+            "custom_fields": {
+                "price": price,
+            },
         }
         response = self.send_request("POST", f"{NETBOX_HOST}/api/dcim/cables/", body=cable)
 

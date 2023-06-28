@@ -2,7 +2,20 @@ import math
 import json
 
 from netbox_client import NetboxClient
+from prices import Prices
+from distances import Distances
 
+
+class EntryWithPrice:
+    def __init__(self, price = 0, name = None, description = None):
+        self.price = price
+        self.name = name
+        self.description = description
+    
+    def priceListEntry(self):
+        if self.description is None:
+            return f"{self.name}: {self.price}"
+        return f"{self.name} ({self.description}): {self.price}"
 
 class Interface:
     def __init__(self, id, is_open=True):
@@ -10,10 +23,13 @@ class Interface:
         self.is_open = is_open
 
 
-class Device:
-    def __init__(self, id, interfaces):
+class Device(EntryWithPrice):
+    def __init__(self, id, interfaces, rack = None, price = 0):
         self.id = id
         self.interfaces = interfaces
+        self.rack = rack
+        
+        super().__init__(price, f"Device {id}", f"Device with {len(interfaces)} interfaces")
 
     def add_interface(self, interface):
         self.interfaces.append(interface)
@@ -22,13 +38,34 @@ class Device:
         for interface in self.interfaces:
             if interface.is_open:
                 return interface
+    
+    def getRack(self):
+        return self.rack
+    
+    def getRackId(self):
+        if self.rack is not None:
+            return self.rack.id
+        return None
 
+class Cable(EntryWithPrice):
+    def __init__(self, id, cableType, length, pricePerMeter, price):
+        self.id = id
+        self.cableType = cableType
+        self.length = length
+        self.pricePerMeter = pricePerMeter
 
-class Rack:
-    def __init__(self, id, height, devices=[]):
+        super().__init__(price, f"Cable {id}", f"{length} m")
+
+class Rack(EntryWithPrice):
+    def __init__(self, id, height, devices=[], price=None):
         self.id = id
         self.height = height
         self.devices = devices
+
+        if price is None:
+            price = Prices.getRackPriceBasedOnHeight(height)
+
+        super().__init__(price, f"Rack with {height} U", f"Rack {id}")
 
     def has_place(self):
         return len(self.devices) < self.height
@@ -67,7 +104,7 @@ def create_routers_with_ports(router_num, port_num, type_name, racks):
             int_name = router_name + "int" + str(int_id + 1)
             interface_id = client.create_interface(name=int_name, device_id=new_router_id)
             interfaces.append(Interface(interface_id))
-        device = Device(new_router_id, interfaces)
+        device = Device(new_router_id, interfaces, rack=rack)
         rack.add_device(device)
         router_list.append(device)
     return router_list
@@ -82,33 +119,56 @@ def create_hosts(host_num, racks):
                                            site_id=site_id, rack_id=rack.id, rack_position=rack.empty_position())
         int_name = host_name + "int" + str(1)
         interface_id = client.create_interface(name=int_name, device_id=new_host_id)
-        device = Device(new_host_id, [Interface(interface_id)])
+        device = Device(new_host_id, [Interface(interface_id)], rack=rack, price=Prices.dell_poweredge_r450_xs)
         rack.add_device(device)
         host_list.append(device)
     return host_list
 
 
-def join_devices(left_device, right_device):
+def join_devices(left_device, right_device, distance_between_racks = 10):
     left_interface = left_device.find_first_open_interface()
     right_interface = right_device.find_first_open_interface()
-    client.create_cable(left_interface.id, right_interface.id)
+
+    # check if both devices are in the same rack id
+    if left_device.getRackId() == right_device.getRackId():
+        cable_length = 1
+    else:
+        cable_length = distance_between_racks
+    
+    cable_price_per_meter = Prices.rj45_cat_7
+    cable_price = cable_length * cable_price_per_meter
+
+    cable_id = client.create_cable(left_interface.id, right_interface.id, cable_length, cable_price)
     left_interface.is_open = False
     right_interface.is_open = False
 
+    cable = Cable(cable_id, "rj45_cat_7", cable_length, cable_price_per_meter, cable_price)
+    return cable
+
 
 def join_core_with_aggregation(core_routers, aggregation_routers):
+    cable_list = []
+
     for id, agg_r in enumerate(aggregation_routers):
         if id % 2 == 0:
             core_routers_to_join = core_routers[:len(core_routers) // 2]
             for core_router in core_routers_to_join:
-                join_devices(agg_r, core_router)
+                cable_list.append(
+                    join_devices(agg_r, core_router, distance_between_racks=Distances.core_to_aggregation)
+                )
         else:
             core_routers_to_join = core_routers[len(core_routers) // 2:]
             for core_router in core_routers_to_join:
-                join_devices(agg_r, core_router)
+                cable_list.append(
+                    join_devices(agg_r, core_router, distance_between_racks=Distances.core_to_aggregation)
+                )
+    
+    return cable_list
 
 
 def join_aggregation_with_edge(aggregation_routers, edge_routers, pod_number):
+    cable_list = []
+    
     aggregation_per_pod = len(aggregation_routers) // pod_number
     edge_per_pod = len(edge_routers) // pod_number
 
@@ -124,14 +184,24 @@ def join_aggregation_with_edge(aggregation_routers, edge_routers, pod_number):
 
         for agg_r in aggregation_pod_routers:
             for edge_r in edge_pod_routers:
-                join_devices(agg_r, edge_r)
+                cable_list.append(
+                    join_devices(agg_r, edge_r, distance_between_racks=Distances.aggregation_to_edge)
+                )
+        
+    return cable_list
 
 
 def join_edge_with_hosts(edge_routers, host_list):
+    cable_list = []
+
     hosts_per_router = len(host_list) // len(edge_routers)
     for id, edge_r in enumerate(edge_routers):
         for host in host_list[id * hosts_per_router: (id * hosts_per_router) + hosts_per_router]:
-            join_devices(edge_r, host)
+            cable_list.append(
+                join_devices(edge_r, host, distance_between_racks=Distances.edge_to_host)
+            )
+    
+    return cable_list
 
 
 def create_topology(site_id):
@@ -168,18 +238,78 @@ def create_topology(site_id):
     host_list = create_hosts(HOST_NUMBER, racks)
 
     # JOINING PARTY
-    join_core_with_aggregation(core_routers, aggregation_routers)
-    join_aggregation_with_edge(aggregation_routers, edge_routers, POD_NUMBER)
-    join_edge_with_hosts(edge_routers, host_list)
+    cable_list = []
+
+    cable_list += join_core_with_aggregation(core_routers, aggregation_routers)
+    cable_list += join_aggregation_with_edge(aggregation_routers, edge_routers, POD_NUMBER)
+    cable_list += join_edge_with_hosts(edge_routers, host_list)
+
+    # PRINT
+    printCostTable({
+        "racks": racks,
+        "core_routers": core_routers,
+        "aggregation_routers": aggregation_routers,
+        "edge_routers": edge_routers,
+        "hosts": host_list,
+        "cables": cable_list,
+   })
 
 
 def cleanup():
+    client.delete_custom_types()
     client.delete_devices()
     client.delete_racks()
     client.delete_device_types()
     client.delete_device_roles()
     client.delete_manufacturers()
     client.delete_sites()
+
+def printCostTable(entries):
+    grouppedData = {}
+
+    for key, value in entries.items():
+        print("=" * 20)
+        print(key)
+        print("-" * 20)
+
+        grouppedData[key] = {
+            'price': 0,
+            'count': 0,
+        }
+
+        for entry in value:
+            print(entry.priceListEntry())
+
+            grouppedData[key]['pricePerUnit'] = entry.price
+            grouppedData[key]['price'] = grouppedData[key].get('price', 0) + entry.price
+            grouppedData[key]['count'] = grouppedData[key].get('count', 0) + 1
+        
+        print("\n")
+    
+    print("=" * 20)
+    print("Summary:")
+
+    for key, value in grouppedData.items():
+        if key != 'cables':
+            print(f"{key}: {value['count']}x {value['pricePerUnit']} = {value['price']}")
+        else:
+            totalCableLength = {}
+            pricesOfCables = {}
+            
+            for cable in entries['cables']:
+                cableType = cable.cableType
+                pricesOfCables[cableType] = cable.pricePerMeter
+                
+                if cableType not in totalCableLength:
+                    totalCableLength[cableType] = 0
+                
+                totalCableLength[cableType] = totalCableLength.get(cableType, 0) + cable.length
+            
+            for cableType, length in totalCableLength.items():
+                print(f"{cableType}: {length}m x {pricesOfCables[cableType]}")
+
+    print("=" * 20)
+    print("Total cost: ", sum([value['price'] for value in grouppedData.values()]))
 
 
 # create netbox client
@@ -188,11 +318,14 @@ client.auth()
 
 cleanup()
 
-# #setup project
+# setup project
+client.create_custom_field('price', 'decimal', ["dcim.cable", "dcim.devicetype"])
+
 site_id = client.create_site(name="site")
 manufacturer_id = client.create_manufacturer(name="cisco")
+manufacturer_id_dell = client.create_manufacturer(name="Dell")
 router_device_type = client.create_device_type(name="router", manufacturer_id=manufacturer_id, model_name="cool_model")
-host_device_type = client.create_device_type(name="host", manufacturer_id=manufacturer_id, model_name="cool_model2")
+host_device_type = client.create_device_type(name="host", manufacturer_id=manufacturer_id_dell, model_name="PowerEdge R450 XS", price=Prices.dell_poweredge_r450_xs)
 router_role_id = client.create_device_role(name="router_role")
 host_role_id = client.create_device_role(name="host_role")
 
