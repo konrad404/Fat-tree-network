@@ -92,22 +92,22 @@ def find_free_rack(racks):
             return rack
 
 
-def create_routers_with_ports(router_num, port_num, type_name, racks):
-    router_list = []
+def create_device_with_ports(router_num, port_num, type_name, racks, device_type_id, device_role_id, device_price):
+    device_list = []
     for id in range(router_num):
-        router_name = type_name + "_router_" + str(id + 1)
+        device_name = type_name + str(id + 1)
         rack = find_free_rack(racks)
-        new_router_id = client.create_device(name=router_name, type_id=router_device_type, role_id=router_role_id,
+        new_device_id = client.create_device(name=device_name, type_id=device_type_id, role_id=device_role_id,
                                              site_id=site_id, rack_id=rack.id, rack_position=rack.empty_position())
         interfaces = []
         for int_id in range(port_num):
-            int_name = router_name + "int" + str(int_id + 1)
-            interface_id = client.create_interface(name=int_name, device_id=new_router_id)
+            int_name = device_name + "int" + str(int_id + 1)
+            interface_id = client.create_interface(name=int_name, device_id=new_device_id)
             interfaces.append(Interface(interface_id))
-        device = Device(new_router_id, interfaces, rack=rack)
+        device = Device(new_device_id, interfaces, rack=rack, price=device_price)
         rack.add_device(device)
-        router_list.append(device)
-    return router_list
+        device_list.append(device)
+    return device_list
 
 
 def create_hosts(host_num, racks):
@@ -146,10 +146,10 @@ def join_devices(left_device, right_device, distance_between_racks = 10):
     return cable
 
 
-def join_core_with_aggregation(core_routers, aggregation_routers):
+def join_core_with_aggregation(core_routers, aggregation_switches):
     cable_list = []
 
-    for id, agg_r in enumerate(aggregation_routers):
+    for id, agg_r in enumerate(aggregation_switches):
         if id % 2 == 0:
             core_routers_to_join = core_routers[:len(core_routers) // 2]
             for core_router in core_routers_to_join:
@@ -166,11 +166,11 @@ def join_core_with_aggregation(core_routers, aggregation_routers):
     return cable_list
 
 
-def join_aggregation_with_edge(aggregation_routers, edge_routers, pod_number):
+def join_aggregation_with_edge(aggregation_switches, edge_switches, pod_number):
     cable_list = []
     
-    aggregation_per_pod = len(aggregation_routers) // pod_number
-    edge_per_pod = len(edge_routers) // pod_number
+    aggregation_per_pod = len(aggregation_switches) // pod_number
+    edge_per_pod = len(edge_switches) // pod_number
 
     for pod_id in range(pod_number):
         aggregation_start = pod_id * aggregation_per_pod
@@ -179,8 +179,8 @@ def join_aggregation_with_edge(aggregation_routers, edge_routers, pod_number):
         edge_start = pod_id * edge_per_pod
         edge_end = (pod_id + 1) * edge_per_pod
 
-        aggregation_pod_routers = aggregation_routers[aggregation_start:aggregation_end]
-        edge_pod_routers = edge_routers[edge_start:edge_end]
+        aggregation_pod_routers = aggregation_switches[aggregation_start:aggregation_end]
+        edge_pod_routers = edge_switches[edge_start:edge_end]
 
         for agg_r in aggregation_pod_routers:
             for edge_r in edge_pod_routers:
@@ -191,11 +191,11 @@ def join_aggregation_with_edge(aggregation_routers, edge_routers, pod_number):
     return cable_list
 
 
-def join_edge_with_hosts(edge_routers, host_list):
+def join_edge_with_hosts(edge_switches, host_list):
     cable_list = []
 
-    hosts_per_router = len(host_list) // len(edge_routers)
-    for id, edge_r in enumerate(edge_routers):
+    hosts_per_router = len(host_list) // len(edge_switches)
+    for id, edge_r in enumerate(edge_switches):
         for host in host_list[id * hosts_per_router: (id * hosts_per_router) + hosts_per_router]:
             cable_list.append(
                 join_devices(edge_r, host, distance_between_racks=Distances.edge_to_host)
@@ -210,10 +210,13 @@ def create_topology(site_id):
 
     CORE_NUMBER = config["core_router_number"]
     PORTS_PER_ROUTER = config["ports_per_router"]
+    PORTS_PER_SWITCH = config["ports_per_switch"]
+    ROUTER_PRICE = config["router_price"]
+    SWITCH_PRICE = config["switch_price"]
     HOST_NUMBER = config["host_number"]
     RACK_HEIGHT = config["rack_height"]
 
-    POD_NUMBER = int(math.ceil(HOST_NUMBER / (2 * (PORTS_PER_ROUTER - 2))))
+    POD_NUMBER = int(math.ceil(HOST_NUMBER / (2 * (PORTS_PER_SWITCH - 2))))
     AGGREGATION_NUMBER = 2 * POD_NUMBER
     EDGE_NUMBER = 2 * POD_NUMBER
     DEVICES_NUMBER = CORE_NUMBER + AGGREGATION_NUMBER + EDGE_NUMBER + HOST_NUMBER
@@ -222,17 +225,20 @@ def create_topology(site_id):
     racks = create_racks(rack_num=RACK_NUMBER, rack_height_U=RACK_HEIGHT, site_id=site_id)
 
     # CORE ROUTERS
-    CORE_PORTS = AGGREGATION_NUMBER // 2
-    # TODO: check if generated number of porst is acceptable (depends on router machine)
-    core_routers = create_routers_with_ports(CORE_NUMBER, CORE_PORTS, "core", racks)
+    CORE_PORTS = POD_NUMBER
+    # TODO: check if there is not too many pods for PORTS_PER_ROUTER
+    core_routers = create_device_with_ports(CORE_NUMBER, CORE_PORTS, "core_router_", racks, router_device_type,
+                                            router_role_id, ROUTER_PRICE)
 
     # AGGREGATION ROUTERS
     AGGREGATION_PORTS = CORE_NUMBER // 2 + EDGE_NUMBER // POD_NUMBER
-    aggregation_routers = create_routers_with_ports(AGGREGATION_NUMBER, AGGREGATION_PORTS, "aggregation", racks)
+    aggregation_switches = create_device_with_ports(AGGREGATION_NUMBER, AGGREGATION_PORTS, "aggregation_switch_", racks,
+                                                   switch_device_type, switch_role_id, SWITCH_PRICE)
 
     # EDGE ROUTERS
     EDGE_PORTS = AGGREGATION_NUMBER // POD_NUMBER + HOST_NUMBER // EDGE_NUMBER
-    edge_routers = create_routers_with_ports(EDGE_NUMBER, EDGE_PORTS, "edge", racks)
+    edge_switches = create_device_with_ports(EDGE_NUMBER, EDGE_PORTS, "edge_switch_", racks, switch_device_type,
+                                            switch_role_id, SWITCH_PRICE)
 
     # HOSTS
     host_list = create_hosts(HOST_NUMBER, racks)
@@ -240,16 +246,16 @@ def create_topology(site_id):
     # JOINING PARTY
     cable_list = []
 
-    cable_list += join_core_with_aggregation(core_routers, aggregation_routers)
-    cable_list += join_aggregation_with_edge(aggregation_routers, edge_routers, POD_NUMBER)
-    cable_list += join_edge_with_hosts(edge_routers, host_list)
+    cable_list += join_core_with_aggregation(core_routers, aggregation_switches)
+    cable_list += join_aggregation_with_edge(aggregation_switches, edge_switches, POD_NUMBER)
+    cable_list += join_edge_with_hosts(edge_switches, host_list)
 
     # PRINT
     printCostTable({
         "racks": racks,
         "core_routers": core_routers,
-        "aggregation_routers": aggregation_routers,
-        "edge_routers": edge_routers,
+        "aggregation_switches": aggregation_switches,
+        "edge_switches": edge_switches,
         "hosts": host_list,
         "cables": cable_list,
    })
@@ -322,10 +328,13 @@ cleanup()
 client.create_custom_field('price', 'decimal', ["dcim.cable", "dcim.devicetype"])
 
 site_id = client.create_site(name="site")
-manufacturer_id = client.create_manufacturer(name="cisco")
+manufacturer_id_cisco = client.create_manufacturer(name="cisco")
 manufacturer_id_dell = client.create_manufacturer(name="Dell")
-router_device_type = client.create_device_type(name="router", manufacturer_id=manufacturer_id, model_name="cool_model")
+manufacturer_id_mikrotik = client.create_manufacturer(name="mikrotik")
+switch_device_type = client.create_device_type(name="switch", manufacturer_id=manufacturer_id_cisco, model_name="Cisco ASR 9000 Series")
+router_device_type = client.create_device_type(name="router", manufacturer_id=manufacturer_id_mikrotik, model_name="Mikrotik CCR1036-8G-2S+EM")
 host_device_type = client.create_device_type(name="host", manufacturer_id=manufacturer_id_dell, model_name="PowerEdge R450 XS", price=Prices.dell_poweredge_r450_xs)
+switch_role_id = client.create_device_role(name="switch_role")
 router_role_id = client.create_device_role(name="router_role")
 host_role_id = client.create_device_role(name="host_role")
 
