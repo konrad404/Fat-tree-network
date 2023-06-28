@@ -1,2 +1,3 @@
 /netbox-docker/
 /.idea/
+__pycache__/
