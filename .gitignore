@@ -1,3 +1,4 @@
 /netbox-docker/
+/netbox-docker-with-plugins/
 /.idea/
 __pycache__/
