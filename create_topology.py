@@ -211,10 +211,12 @@ def create_topology(site_id):
     CORE_NUMBER = config["core_router_number"]
     PORTS_PER_ROUTER = config["ports_per_router"]
     PORTS_PER_SWITCH = config["ports_per_switch"]
-    ROUTER_PRICE = config["router_price"]
-    SWITCH_PRICE = config["switch_price"]
+
     HOST_NUMBER = config["host_number"]
     RACK_HEIGHT = config["rack_height"]
+
+    ROUTER_PRICE = Prices.router_price
+    SWITCH_PRICE = Prices.switch_price
 
     POD_NUMBER = int(math.ceil(HOST_NUMBER / (2 * (PORTS_PER_SWITCH - 2))))
     AGGREGATION_NUMBER = 2 * POD_NUMBER
@@ -315,7 +317,7 @@ def printCostTable(entries):
                 print(f"{cableType}: {length}m x {pricesOfCables[cableType]}")
 
     print("=" * 20)
-    print("Total cost: ", sum([value['price'] for value in grouppedData.values()]))
+    print("Total cost: ", round(sum([value['price'] for value in grouppedData.values()]), 2))
 
 
 # create netbox client

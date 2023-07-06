@@ -2,8 +2,6 @@
   "core_router_number": 4,
   "ports_per_router": 8,
   "ports_per_switch": 36,
-  "router_price": 6348.66,
-  "switch_price": 6476.75,
   "host_number" : 16,
   "rack_height": 42
 }

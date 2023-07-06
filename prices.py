@@ -4,6 +4,8 @@ class Prices:
     rj45_cat_7 = 579 / 100
     rack_42u = 2000
     dell_poweredge_r450_xs = 19399
+    router_price = 6348.66
+    switch_price = 6476.75
 
     @staticmethod
     def getRackPriceBasedOnHeight(rack_height):
