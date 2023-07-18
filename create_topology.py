@@ -7,15 +7,16 @@ from distances import Distances
 
 
 class EntryWithPrice:
-    def __init__(self, price = 0, name = None, description = None):
+    def __init__(self, price=0, name=None, description=None):
         self.price = price
         self.name = name
         self.description = description
-    
-    def priceListEntry(self):
+
+    def price_list_entry(self):
         if self.description is None:
             return f"{self.name}: {self.price}"
         return f"{self.name} ({self.description}): {self.price}"
+
 
 class Interface:
     def __init__(self, id, is_open=True):
@@ -24,11 +25,11 @@ class Interface:
 
 
 class Device(EntryWithPrice):
-    def __init__(self, id, interfaces, rack = None, price = 0):
+    def __init__(self, id, interfaces, rack=None, price=0):
         self.id = id
         self.interfaces = interfaces
         self.rack = rack
-        
+
         super().__init__(price, f"Device {id}", f"Device with {len(interfaces)} interfaces")
 
     def add_interface(self, interface):
@@ -38,23 +39,25 @@ class Device(EntryWithPrice):
         for interface in self.interfaces:
             if interface.is_open:
                 return interface
-    
-    def getRack(self):
+
+    def get_rack(self):
         return self.rack
-    
-    def getRackId(self):
+
+    def get_rack_id(self):
         if self.rack is not None:
             return self.rack.id
         return None
 
+
 class Cable(EntryWithPrice):
-    def __init__(self, id, cableType, length, pricePerMeter, price):
+    def __init__(self, id, cable_type, length, price_per_meter, price):
         self.id = id
-        self.cableType = cableType
+        self.cableType = cable_type
         self.length = length
-        self.pricePerMeter = pricePerMeter
+        self.pricePerMeter = price_per_meter
 
         super().__init__(price, f"Cable {id}", f"{length} m")
+
 
 class Rack(EntryWithPrice):
     def __init__(self, id, height, price=None):
@@ -77,12 +80,12 @@ class Rack(EntryWithPrice):
         self.devices.append(device)
 
 
-def create_racks(rack_num, rack_height_U, site_id):
+def create_racks(rack_num, rack_height_u):
     rack_list = []
     for id in range(rack_num):
         rack_name = "rack_" + str(id)
-        new_rack_id = client.create_rack(rack_name, device_number=rack_height_U, site_id=site_id)
-        rack_list.append(Rack(new_rack_id, rack_height_U))
+        new_rack_id = client.create_rack(rack_name, device_number=rack_height_u, site_id=site_id)
+        rack_list.append(Rack(new_rack_id, rack_height_u))
     return rack_list
 
 
@@ -92,9 +95,9 @@ def find_free_rack(racks):
             return rack
 
 
-def create_device_with_ports(router_num, port_num, type_name, racks, device_type_id, device_role_id, device_price):
+def create_device_with_ports(switch_num, port_num, type_name, racks, device_type_id, device_role_id, device_price):
     device_list = []
-    for id in range(router_num):
+    for id in range(switch_num):
         device_name = type_name + str(id + 1)
         rack = find_free_rack(racks)
         new_device_id = client.create_device(name=device_name, type_id=device_type_id, role_id=device_role_id,
@@ -125,16 +128,16 @@ def create_hosts(host_num, racks):
     return host_list
 
 
-def join_devices(left_device, right_device, distance_between_racks = 10):
+def join_devices(left_device, right_device, distance_between_racks=10):
     left_interface = left_device.find_first_open_interface()
     right_interface = right_device.find_first_open_interface()
 
     # check if both devices are in the same rack id
-    if left_device.getRackId() == right_device.getRackId():
+    if left_device.get_rack_id() == right_device.get_rack_id():
         cable_length = 1
     else:
         cable_length = distance_between_racks
-    
+
     cable_price_per_meter = Prices.rj45_cat_7
     cable_price = cable_length * cable_price_per_meter
 
@@ -146,29 +149,40 @@ def join_devices(left_device, right_device, distance_between_racks = 10):
     return cable
 
 
-def join_core_with_aggregation(core_routers, aggregation_switches):
+def join_core_with_aggregation(core_switches, aggregation_switches):
     cable_list = []
 
     for id, agg_r in enumerate(aggregation_switches):
         if id % 2 == 0:
-            core_routers_to_join = core_routers[:len(core_routers) // 2]
-            for core_router in core_routers_to_join:
+            core_switches_to_join = core_switches[:len(core_switches) // 2]
+            for core_switch in core_switches_to_join:
                 cable_list.append(
-                    join_devices(agg_r, core_router, distance_between_racks=Distances.core_to_aggregation)
+                    join_devices(agg_r, core_switch, distance_between_racks=Distances.core_to_aggregation)
                 )
         else:
-            core_routers_to_join = core_routers[len(core_routers) // 2:]
-            for core_router in core_routers_to_join:
+            core_switches_to_join = core_switches[len(core_switches) // 2:]
+            for core_switch in core_switches_to_join:
                 cable_list.append(
-                    join_devices(agg_r, core_router, distance_between_racks=Distances.core_to_aggregation)
+                    join_devices(agg_r, core_switch, distance_between_racks=Distances.core_to_aggregation)
                 )
-    
+
+    return cable_list
+
+def join_core_with_edge(core_switches, edge_switches):
+    cable_list = []
+
+    for core_switch in core_switches:
+        for edge_switch in edge_switches:
+            cable_list.append(
+                join_devices(core_switch, edge_switch, distance_between_racks=Distances.core_to_edge)
+            )
+
     return cable_list
 
 
 def join_aggregation_with_edge(aggregation_switches, edge_switches, pod_number):
     cable_list = []
-    
+
     aggregation_per_pod = len(aggregation_switches) // pod_number
     edge_per_pod = len(edge_switches) // pod_number
 
@@ -179,88 +193,104 @@ def join_aggregation_with_edge(aggregation_switches, edge_switches, pod_number):
         edge_start = pod_id * edge_per_pod
         edge_end = (pod_id + 1) * edge_per_pod
 
-        aggregation_pod_routers = aggregation_switches[aggregation_start:aggregation_end]
-        edge_pod_routers = edge_switches[edge_start:edge_end]
+        aggregation_pod_switches = aggregation_switches[aggregation_start:aggregation_end]
+        edge_pod_switches = edge_switches[edge_start:edge_end]
 
-        for agg_r in aggregation_pod_routers:
-            for edge_r in edge_pod_routers:
+        for agg_r in aggregation_pod_switches:
+            for edge_r in edge_pod_switches:
                 cable_list.append(
                     join_devices(agg_r, edge_r, distance_between_racks=Distances.aggregation_to_edge)
                 )
-        
+
     return cable_list
 
 
 def join_edge_with_hosts(edge_switches, host_list):
     cable_list = []
 
-    hosts_per_router = len(host_list) // len(edge_switches)
+    hosts_per_switch = len(host_list) // len(edge_switches)
     for id, edge_r in enumerate(edge_switches):
-        for host in host_list[id * hosts_per_router: (id * hosts_per_router) + hosts_per_router]:
+        for host in host_list[id * hosts_per_switch: (id * hosts_per_switch) + hosts_per_switch]:
             cable_list.append(
                 join_devices(edge_r, host, distance_between_racks=Distances.edge_to_host)
             )
-    
+
     return cable_list
 
 
-def create_topology(site_id):
-    config_file = open("config.json")
+def create_topology():
+    config_file = open("L2_config.json")
     config = json.load(config_file)
 
-    CORE_NUMBER = config["core_router_number"]
-    PORTS_PER_ROUTER = config["ports_per_router"]
+    TREE_LEVEL = config["tree_level"]
+    # CORE_NUMBER = config["core_switch_number"]
+    # PORTS_PER_switch = config["ports_per_switch"]
     PORTS_PER_SWITCH = config["ports_per_switch"]
 
-    HOST_NUMBER = config["host_number"]
+    # HOST_NUMBER = config["host_number"]
     RACK_HEIGHT = config["rack_height"]
 
-    ROUTER_PRICE = Prices.router_price
+    CORE_NUMBER = pow(PORTS_PER_SWITCH // 2, TREE_LEVEL - 1)
+    HOST_NUMBER = 2 * pow(PORTS_PER_SWITCH // 2, TREE_LEVEL)
+    EDGE_NUMBER = 2 * CORE_NUMBER
+    TOTAL_SWITCHES = (2 * TREE_LEVEL - 1) * CORE_NUMBER
+    AGGREGATION_NUMBER = TOTAL_SWITCHES - CORE_NUMBER - EDGE_NUMBER
+
     SWITCH_PRICE = Prices.switch_price
 
     POD_NUMBER = int(math.ceil(HOST_NUMBER / (2 * (PORTS_PER_SWITCH - 2))))
-    AGGREGATION_NUMBER = 2 * POD_NUMBER
-    EDGE_NUMBER = 2 * POD_NUMBER
-    DEVICES_NUMBER = CORE_NUMBER + AGGREGATION_NUMBER + EDGE_NUMBER + HOST_NUMBER
+    # AGGREGATION_NUMBER = 2 * POD_NUMBER
+    # EDGE_NUMBER = 2 * POD_NUMBER
+    # DEVICES_NUMBER = CORE_NUMBER + AGGREGATION_NUMBER + EDGE_NUMBER + HOST_NUMBER
+    DEVICES_NUMBER = TOTAL_SWITCHES + HOST_NUMBER
     RACK_NUMBER = int(math.ceil(DEVICES_NUMBER / RACK_HEIGHT))
 
-    racks = create_racks(rack_num=RACK_NUMBER, rack_height_U=RACK_HEIGHT, site_id=site_id)
+    racks = create_racks(rack_num=RACK_NUMBER, rack_height_u=RACK_HEIGHT)
 
-    # CORE ROUTERS
-    CORE_PORTS = POD_NUMBER
-    # TODO: check if there is not too many pods for PORTS_PER_ROUTER
-    core_routers = create_device_with_ports(CORE_NUMBER, CORE_PORTS, "core_router_", racks, router_device_type,
-                                            router_role_id, ROUTER_PRICE)
+    # CORE switches
+    # CORE_PORTS = POD_NUMBER
+    # TODO: check if there is not too many pods for PORTS_PER_switch
+    core_switches = create_device_with_ports(CORE_NUMBER, PORTS_PER_SWITCH, "core_switch_", racks, switch_device_type,
+                                             switch_role_id, SWITCH_PRICE)
 
-    # AGGREGATION ROUTERS
-    AGGREGATION_PORTS = CORE_NUMBER // 2 + EDGE_NUMBER // POD_NUMBER
-    aggregation_switches = create_device_with_ports(AGGREGATION_NUMBER, AGGREGATION_PORTS, "aggregation_switch_", racks,
-                                                   switch_device_type, switch_role_id, SWITCH_PRICE)
+    # AGGREGATION switches
+    # AGGREGATION_PORTS = CORE_NUMBER // 2 + EDGE_NUMBER // POD_NUMBER
+    aggregation_switches = create_device_with_ports(AGGREGATION_NUMBER, PORTS_PER_SWITCH, "aggregation_switch_", racks,
+                                                    switch_device_type, switch_role_id, SWITCH_PRICE)
 
-    # EDGE ROUTERS
-    EDGE_PORTS = AGGREGATION_NUMBER // POD_NUMBER + HOST_NUMBER // EDGE_NUMBER
-    edge_switches = create_device_with_ports(EDGE_NUMBER, EDGE_PORTS, "edge_switch_", racks, switch_device_type,
-                                            switch_role_id, SWITCH_PRICE)
+    # EDGE switches
+    # EDGE_PORTS = AGGREGATION_NUMBER // POD_NUMBER + HOST_NUMBER // EDGE_NUMBER
+    edge_switches = create_device_with_ports(EDGE_NUMBER, PORTS_PER_SWITCH, "edge_switch_", racks, switch_device_type,
+                                             switch_role_id, SWITCH_PRICE)
 
     # HOSTS
     host_list = create_hosts(HOST_NUMBER, racks)
 
     # JOINING PARTY
     cable_list = []
-
-    cable_list += join_core_with_aggregation(core_routers, aggregation_switches)
-    cable_list += join_aggregation_with_edge(aggregation_switches, edge_switches, POD_NUMBER)
+    
+    if TREE_LEVEL == 2:
+        cable_list += join_core_with_edge(core_switches, edge_switches)
+    else:
+        cable_list += join_core_with_aggregation(core_switches, aggregation_switches)
+        cable_list += join_aggregation_with_edge(aggregation_switches, edge_switches, POD_NUMBER)
+    
     cable_list += join_edge_with_hosts(edge_switches, host_list)
 
     # PRINT
-    printCostTable({
+    cost_table_entities = {
         "racks": racks,
-        "core_routers": core_routers,
+        "core_switches": core_switches,
         "aggregation_switches": aggregation_switches,
         "edge_switches": edge_switches,
         "hosts": host_list,
         "cables": cable_list,
-   })
+    }
+
+    if TREE_LEVEL == 2:
+        cost_table_entities.pop("aggregation_switches")
+
+    print_cost_table(cost_table_entities)
 
 
 def cleanup():
@@ -272,52 +302,53 @@ def cleanup():
     client.delete_manufacturers()
     client.delete_sites()
 
-def printCostTable(entries):
-    grouppedData = {}
+
+def print_cost_table(entries):
+    grouped_data = {}
 
     for key, value in entries.items():
         print("=" * 20)
         print(key)
         print("-" * 20)
 
-        grouppedData[key] = {
+        grouped_data[key] = {
             'price': 0,
             'count': 0,
         }
 
         for entry in value:
-            print(entry.priceListEntry())
+            print(entry.price_list_entry())
 
-            grouppedData[key]['pricePerUnit'] = entry.price
-            grouppedData[key]['price'] = grouppedData[key].get('price', 0) + entry.price
-            grouppedData[key]['count'] = grouppedData[key].get('count', 0) + 1
-        
+            grouped_data[key]['pricePerUnit'] = entry.price
+            grouped_data[key]['price'] = grouped_data[key].get('price', 0) + entry.price
+            grouped_data[key]['count'] = grouped_data[key].get('count', 0) + 1
+
         print("\n")
-    
+
     print("=" * 20)
     print("Summary:")
 
-    for key, value in grouppedData.items():
+    for key, value in grouped_data.items():
         if key != 'cables':
             print(f"{key}: {value['count']}x {value['pricePerUnit']} = {value['price']}")
         else:
-            totalCableLength = {}
-            pricesOfCables = {}
-            
+            total_cable_length = {}
+            prices_of_cables = {}
+
             for cable in entries['cables']:
-                cableType = cable.cableType
-                pricesOfCables[cableType] = cable.pricePerMeter
-                
-                if cableType not in totalCableLength:
-                    totalCableLength[cableType] = 0
-                
-                totalCableLength[cableType] = totalCableLength.get(cableType, 0) + cable.length
-            
-            for cableType, length in totalCableLength.items():
-                print(f"{cableType}: {length}m x {pricesOfCables[cableType]}")
+                cable_type = cable.cableType
+                prices_of_cables[cable_type] = cable.pricePerMeter
+
+                if cable_type not in total_cable_length:
+                    total_cable_length[cable_type] = 0
+
+                total_cable_length[cable_type] = total_cable_length.get(cable_type, 0) + cable.length
+
+            for cable_type, length in total_cable_length.items():
+                print(f"{cable_type}: {length}m x {prices_of_cables[cable_type]}")
 
     print("=" * 20)
-    print("Total cost: ", round(sum([value['price'] for value in grouppedData.values()]), 2))
+    print("Total cost: ", round(sum([value['price'] for value in grouped_data.values()]), 2))
 
 
 # create netbox client
@@ -332,12 +363,11 @@ client.create_custom_field('price', 'decimal', ["dcim.cable", "dcim.devicetype"]
 site_id = client.create_site(name="site")
 manufacturer_id_cisco = client.create_manufacturer(name="cisco")
 manufacturer_id_dell = client.create_manufacturer(name="Dell")
-manufacturer_id_mikrotik = client.create_manufacturer(name="mikrotik")
-switch_device_type = client.create_device_type(name="switch", manufacturer_id=manufacturer_id_cisco, model_name="Cisco ASR 9000 Series")
-router_device_type = client.create_device_type(name="router", manufacturer_id=manufacturer_id_mikrotik, model_name="Mikrotik CCR1036-8G-2S+EM")
-host_device_type = client.create_device_type(name="host", manufacturer_id=manufacturer_id_dell, model_name="PowerEdge R450 XS", price=Prices.dell_poweredge_r450_xs)
+switch_device_type = client.create_device_type(name="switch", manufacturer_id=manufacturer_id_cisco,
+                                               model_name="Cisco ASR 9000 Series")
+host_device_type = client.create_device_type(name="host", manufacturer_id=manufacturer_id_dell,
+                                             model_name="PowerEdge R450 XS", price=Prices.dell_poweredge_r450_xs)
 switch_role_id = client.create_device_role(name="switch_role")
-router_role_id = client.create_device_role(name="router_role")
 host_role_id = client.create_device_role(name="host_role")
 
-create_topology(site_id)
+create_topology()
