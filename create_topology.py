@@ -169,19 +169,13 @@ def join_core_with_aggregation(core_switches, aggregation_switches):
 
     return cable_list
 
-def join_core_with_edge(core_switches, edge_switches, pod_number):
+def join_core_with_edge(core_switches, edge_switches):
     cable_list = []
 
-    edge_per_pod = len(edge_switches) // pod_number
-
-    for pod_id in range(pod_number):
-        edge_start = pod_id * edge_per_pod
-
-        for i in range(len(core_switches)):
-            edge_switch_to_join = edge_switches[edge_start + i%(edge_per_pod)]
-            core_switch_to_join = core_switches[i]
+    for core_switch in core_switches:
+        for edge_switch in edge_switches:
             cable_list.append(
-                join_devices(core_switch_to_join, edge_switch_to_join, distance_between_racks=Distances.core_to_edge)
+                join_devices(core_switch, edge_switch, distance_between_racks=Distances.core_to_edge)
             )
     return cable_list
 
@@ -273,7 +267,7 @@ def create_topology():
     cable_list = []
     
     if TREE_LEVEL == 2:
-        cable_list += join_core_with_edge(core_switches, edge_switches, POD_SIZE)
+        cable_list += join_core_with_edge(core_switches, edge_switches)
     else:
         cable_list += join_core_with_aggregation(core_switches, aggregation_switches)
         cable_list += join_aggregation_with_edge(aggregation_switches, edge_switches, POD_NUMBER)
