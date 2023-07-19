@@ -1,5 +1,6 @@
 {
   "tree_level": 2,
-  "ports_per_switch": 4,
+  "ports_per_switch": 8,
+  "pod_size": 4,
   "rack_height": 42
 }

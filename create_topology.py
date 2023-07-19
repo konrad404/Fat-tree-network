@@ -49,6 +49,7 @@ class Device(EntryWithPrice):
         return None
 
 
+
 class Cable(EntryWithPrice):
     def __init__(self, id, cable_type, length, price_per_meter, price):
         self.id = id
@@ -168,15 +169,20 @@ def join_core_with_aggregation(core_switches, aggregation_switches):
 
     return cable_list
 
-def join_core_with_edge(core_switches, edge_switches):
+def join_core_with_edge(core_switches, edge_switches, pod_number):
     cable_list = []
 
-    for core_switch in core_switches:
-        for edge_switch in edge_switches:
-            cable_list.append(
-                join_devices(core_switch, edge_switch, distance_between_racks=Distances.core_to_edge)
-            )
+    edge_per_pod = len(edge_switches) // pod_number
 
+    for pod_id in range(pod_number):
+        edge_start = pod_id * edge_per_pod
+
+        for i in range(len(core_switches)):
+            edge_switch_to_join = edge_switches[edge_start + i%(edge_per_pod)]
+            core_switch_to_join = core_switches[i]
+            cable_list.append(
+                join_devices(core_switch_to_join, edge_switch_to_join, distance_between_racks=Distances.core_to_edge)
+            )
     return cable_list
 
 
@@ -220,46 +226,43 @@ def join_edge_with_hosts(edge_switches, host_list):
 
 def create_topology():
     config_file = open("L2_config.json")
+    # config_file = open("L3_config.json")
     config = json.load(config_file)
 
     TREE_LEVEL = config["tree_level"]
-    # CORE_NUMBER = config["core_switch_number"]
-    # PORTS_PER_switch = config["ports_per_switch"]
     PORTS_PER_SWITCH = config["ports_per_switch"]
 
-    # HOST_NUMBER = config["host_number"]
     RACK_HEIGHT = config["rack_height"]
+
 
     CORE_NUMBER = pow(PORTS_PER_SWITCH // 2, TREE_LEVEL - 1)
     HOST_NUMBER = 2 * pow(PORTS_PER_SWITCH // 2, TREE_LEVEL)
     EDGE_NUMBER = 2 * CORE_NUMBER
     TOTAL_SWITCHES = (2 * TREE_LEVEL - 1) * CORE_NUMBER
-    AGGREGATION_NUMBER = TOTAL_SWITCHES - CORE_NUMBER - EDGE_NUMBER
+    AGGREGATION_NUMBER = EDGE_NUMBER if TREE_LEVEL == 3 else 0
+    POD_SIZE = config["pod_size"]
 
     SWITCH_PRICE = Prices.switch_price
 
-    POD_NUMBER = int(math.ceil(HOST_NUMBER / (2 * (PORTS_PER_SWITCH - 2))))
-    # AGGREGATION_NUMBER = 2 * POD_NUMBER
-    # EDGE_NUMBER = 2 * POD_NUMBER
-    # DEVICES_NUMBER = CORE_NUMBER + AGGREGATION_NUMBER + EDGE_NUMBER + HOST_NUMBER
+    if TREE_LEVEL == 2:
+        POD_NUMBER = int(EDGE_NUMBER // POD_SIZE)
+    elif TREE_LEVEL == 3:
+        POD_NUMBER = int(EDGE_NUMBER // (POD_SIZE / 2))
+
     DEVICES_NUMBER = TOTAL_SWITCHES + HOST_NUMBER
     RACK_NUMBER = int(math.ceil(DEVICES_NUMBER / RACK_HEIGHT))
 
     racks = create_racks(rack_num=RACK_NUMBER, rack_height_u=RACK_HEIGHT)
 
     # CORE switches
-    # CORE_PORTS = POD_NUMBER
-    # TODO: check if there is not too many pods for PORTS_PER_switch
     core_switches = create_device_with_ports(CORE_NUMBER, PORTS_PER_SWITCH, "core_switch_", racks, switch_device_type,
                                              switch_role_id, SWITCH_PRICE)
 
     # AGGREGATION switches
-    # AGGREGATION_PORTS = CORE_NUMBER // 2 + EDGE_NUMBER // POD_NUMBER
     aggregation_switches = create_device_with_ports(AGGREGATION_NUMBER, PORTS_PER_SWITCH, "aggregation_switch_", racks,
                                                     switch_device_type, switch_role_id, SWITCH_PRICE)
 
     # EDGE switches
-    # EDGE_PORTS = AGGREGATION_NUMBER // POD_NUMBER + HOST_NUMBER // EDGE_NUMBER
     edge_switches = create_device_with_ports(EDGE_NUMBER, PORTS_PER_SWITCH, "edge_switch_", racks, switch_device_type,
                                              switch_role_id, SWITCH_PRICE)
 
@@ -270,7 +273,7 @@ def create_topology():
     cable_list = []
     
     if TREE_LEVEL == 2:
-        cable_list += join_core_with_edge(core_switches, edge_switches)
+        cable_list += join_core_with_edge(core_switches, edge_switches, POD_SIZE)
     else:
         cable_list += join_core_with_aggregation(core_switches, aggregation_switches)
         cable_list += join_aggregation_with_edge(aggregation_switches, edge_switches, POD_NUMBER)

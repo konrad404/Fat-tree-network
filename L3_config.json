@@ -1,8 +1,6 @@
 {
   "tree_level": 3,
-  "core_router_number": 4,
-  "ports_per_router": 8,
   "ports_per_switch": 4,
-  "host_number" : 16,
+  "pod_size": 4,
   "rack_height": 42
 }
